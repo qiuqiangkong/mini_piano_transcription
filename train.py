@@ -10,6 +10,7 @@ import torch.optim as optim
 from data.maestro import MaestroDataset
 from data.collate import collate_fn
 from models.crnn import CRnn
+from models.crnn2 import CRnn2
 from tqdm import tqdm
 import museval
 import argparse
@@ -32,13 +33,14 @@ def train(args):
     dataset = MaestroDataset(
         root=root,
         split="train",
-        segment_seconds=4.,
+        # segment_seconds=4.,
+        segment_seconds=10.,
     )
 
     # Dataloader
     dataloader = torch.utils.data.DataLoader(
         dataset=dataset, 
-        batch_size=4, 
+        batch_size=8, 
         collate_fn=collate_fn,
         num_workers=8, 
         # num_workers=0, 
@@ -111,6 +113,8 @@ def train(args):
 def get_model(model_name):
     if model_name == "CRnn":
         return CRnn()
+    elif model_name == "CRnn2":
+        return CRnn2()
     else:
         raise NotImplementedError
 

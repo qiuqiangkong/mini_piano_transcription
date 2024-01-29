@@ -10,7 +10,6 @@ import torch.optim as optim
 from data.maestro import MaestroDataset
 from data.collate import collate_fn
 from models.crnn import CRnn
-from models.crnn2 import CRnn2
 from tqdm import tqdm
 import museval
 import argparse
@@ -23,11 +22,11 @@ def train(args):
 
     # Default parameters
     device = "cuda"
-    epochs = 200
+    epochs = 2000
     checkpoints_dir = Path("./checkpoints", model_name)
     debug = False
     
-    root = "/home/qiuqiangkong/datasets/maestro/maestro-v2.0.0"
+    root = "/home/qiuqiangkong/datasets/maestro-v2.0.0"
 
     # Dataset
     dataset = MaestroDataset(
@@ -114,7 +113,11 @@ def get_model(model_name):
     if model_name == "CRnn":
         return CRnn()
     elif model_name == "CRnn2":
+        from models.crnn2 import CRnn2
         return CRnn2()
+    elif model_name == "CRnn3":
+        from models.crnn3 import CRnn3
+        return CRnn3()
     else:
         raise NotImplementedError
 

@@ -14,6 +14,7 @@ from tqdm import tqdm
 import museval
 import argparse
 import matplotlib.pyplot as plt
+from train import get_model
 
 
 def inference(args):
@@ -22,21 +23,20 @@ def inference(args):
     model_name = args.model_name
 
     # Default parameters
-    segment_seconds = 4.
+    segment_seconds = 10.
     device = "cuda"
     sample_rate = 16000
 
     # Load checkpoint
     checkpoint_path = Path("checkpoints", model_name, "latest.pth")
+    # checkpoint_path = Path("checkpoints", model_name, "epoch=100.pth")
 
-    model = CRnn()
+    model = get_model(model_name)
     model.load_state_dict(torch.load(checkpoint_path))
     model.to(device)
 
     # Load audio. Change this path to your favorite song.
-    # root = "/home/qiuqiangkong/datasets/musdb18hq/test"
-    # mixture_path = Path(root, "Al James - Schoolboy Facination", "mixture.wav") 
-    audio_path = "/home/qiuqiangkong/datasets/maestro/maestro-v2.0.0/2014/MIDI-UNPROCESSED_01-03_R1_2014_MID--AUDIO_01_R1_2014_wav--2.wav"
+    audio_path = "/home/qiuqiangkong/datasets/maestro-v2.0.0/2014/MIDI-UNPROCESSED_01-03_R1_2014_MID--AUDIO_01_R1_2014_wav--2.wav"
 
     audio, _ = librosa.load(path=audio_path, sr=sample_rate, mono=True)
     # (channels_num, audio_samples)

@@ -10,6 +10,8 @@ def evaluate(args):
     
     est_midi_path = "./_zz.mid"
 
+    root = "/datasets/maestro-v2.0.0/maestro-v2.0.0"
+
     ref_intervals, ref_pitches = parse_midi(ref_midi_path)
     est_intervals, est_pitches = parse_midi(est_midi_path)
 

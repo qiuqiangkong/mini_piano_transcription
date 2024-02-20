@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 import time
+import random
 import librosa
 import numpy as np
 import soundfile
@@ -22,36 +23,39 @@ def train(args):
 
     # Default parameters
     device = "cuda"
-    epochs = 2000
-    checkpoints_dir = Path("./checkpoints", model_name)
+    batch_size = 16
+    num_workers = 32
+    save_step_frequency = 2000
+    training_steps = 100000
     debug = False
+
+    checkpoints_dir = Path("./checkpoints", model_name)
     
-    root = "/home/qiuqiangkong/datasets/maestro-v2.0.0"
+    root = "/datasets/maestro-v2.0.0/maestro-v2.0.0"
 
     # Dataset
     dataset = MaestroDataset(
         root=root,
         split="train",
-        # segment_seconds=4.,
         segment_seconds=10.,
     )
+
+    # Sampler
+    sampler = Sampler(dataset_size=len(dataset))
 
     # Dataloader
     dataloader = torch.utils.data.DataLoader(
         dataset=dataset, 
-        batch_size=8, 
+        batch_size=batch_size, 
+        sampler=sampler,
         collate_fn=collate_fn,
-        num_workers=8, 
-        # num_workers=0, 
+        num_workers=num_workers, 
         pin_memory=True
     )
 
     # Model
     model = get_model(model_name)
     model.to(device)
-
-    # checkpoint_path = Path("checkpoints", model_name, "latest.pth")
-    # model.load_state_dict(torch.load(checkpoint_path))
 
     # Optimizer
     optimizer = optim.AdamW(model.parameters(), lr=0.001)
@@ -60,53 +64,56 @@ def train(args):
     Path(checkpoints_dir).mkdir(parents=True, exist_ok=True)
 
     # Train
-    for epoch in range(1, epochs):
+    for step, data in enumerate(tqdm(dataloader)):
+
+        audio = data["audio"].to(device)
+        onsets_roll = data["onsets_roll"].to(device)
+
+        # soundfile.write(file="_zz.wav", data=audio.cpu().numpy()[0], samplerate=16000)
+
+        # fig, axs = plt.subplots(2,1, sharex=True)
+        # axs[0].matshow(onsets_roll.cpu().numpy()[0].T, origin='lower', aspect='auto', cmap='jet')
+        # axs[1].matshow(data["frames_roll"].cpu().numpy()[0].T, origin='lower', aspect='auto', cmap='jet')
+        # plt.savefig("_zz.pdf")
+        # asdf
         
-        for data in tqdm(dataloader):
 
-            audio = data["audio"].to(device)
-            onsets_roll = data["onsets_roll"].to(device)
+        # Play the audio.
+        if debug:
+            play_audio(mixture, target)
 
-            # soundfile.write(file="_zz.wav", data=audio.cpu().numpy()[0], samplerate=16000)
+        optimizer.zero_grad()
 
-            # fig, axs = plt.subplots(2,1, sharex=True)
-            # axs[0].matshow(onsets_roll.cpu().numpy()[0].T, origin='lower', aspect='auto', cmap='jet')
-            # axs[1].matshow(data["frames_roll"].cpu().numpy()[0].T, origin='lower', aspect='auto', cmap='jet')
-            # plt.savefig("_zz.pdf")
-            
+        model.train()
+        output_dict = model(audio=audio) 
 
-            # Play the audio.
-            if debug:
-                play_audio(mixture, target)
+        # fig, axs = plt.subplots(2,1, sharex=True)
+        # axs[0].matshow(onsets_roll.cpu().numpy()[0].T, origin='lower', aspect='auto', cmap='jet')
+        # axs[1].matshow(output_dict["onset_roll"].data.cpu().numpy()[0].T, origin='lower', aspect='auto', cmap='jet')
+        # plt.savefig("_zz.pdf")
 
-            optimizer.zero_grad()
+        # from IPython import embed; embed(using=False); os._exit(0)
 
-            model.train()
-            output_dict = model(audio=audio) 
+        loss = bce_loss(output_dict["onset_roll"], onsets_roll)
+        loss.backward()
 
-            # fig, axs = plt.subplots(2,1, sharex=True)
-            # axs[0].matshow(onsets_roll.cpu().numpy()[0].T, origin='lower', aspect='auto', cmap='jet')
-            # axs[1].matshow(output_dict["onset_roll"].data.cpu().numpy()[0].T, origin='lower', aspect='auto', cmap='jet')
-            # plt.savefig("_zz.pdf")
+        optimizer.step()
 
-            # from IPython import embed; embed(using=False); os._exit(0)
-
-            loss = bce_loss(output_dict["onset_roll"], onsets_roll)
-            loss.backward()
-
-            optimizer.step()
-
-        print(loss)
+        if step % 100 == 0:
+            print("step: {}, loss: {:.3f}".format(step, loss.item()))
 
         # Save model
-        if epoch % 20 == 0:
-            checkpoint_path = Path(checkpoints_dir, "epoch={}.pth".format(epoch))
+        if step % save_step_frequency == 0:
+            checkpoint_path = Path(checkpoints_dir, "step={}.pth".format(step))
             torch.save(model.state_dict(), checkpoint_path)
             print("Save model to {}".format(checkpoint_path))
 
             checkpoint_path = Path(checkpoints_dir, "latest.pth")
             torch.save(model.state_dict(), Path(checkpoint_path))
             print("Save model to {}".format(checkpoint_path))
+
+        if step == training_steps:
+            break
 
 
 def get_model(model_name):
@@ -122,6 +129,26 @@ def get_model(model_name):
         raise NotImplementedError
 
 
+class Sampler:
+    def __init__(self, dataset_size):
+        self.indexes = list(range(dataset_size))
+        
+    def __iter__(self):
+
+        pointer = 0
+
+        while True:
+
+            if pointer == len(self.indexes):
+                pointer = 0
+                random.shuffle(self.indexes)
+
+            index = self.indexes[pointer]
+            pointer += 1
+
+            yield index
+
+
 def bce_loss(output, target):
     return F.binary_cross_entropy(output, target)
 
@@ -135,7 +162,7 @@ def play_audio(mixture, target):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', type=str, default="CRnn")
+    parser.add_argument('--model_name', type=str, default="CRnn3")
     args = parser.parse_args()
 
     train(args)

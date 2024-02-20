@@ -48,20 +48,15 @@ class ConvBlock(nn.Module):
 
 class CRnn3(nn.Module):
     def __init__(self):
-        super(CRnn3, self).__init__(
-            # n_fft=2048, 
-            # hop_length=441, 
-            # return_complex=True, 
-            # normalized=True
-        )
+        super(CRnn3, self).__init__()
 
         self.mel_extractor = MelSpectrogram(
             sample_rate=16000,
             n_fft=2048,
             hop_length=160,
-            f_min=0.,
+            f_min=30.,
             f_max=8000,
-            n_mels=128,
+            n_mels=229,
             power=2.0,
             normalized=True,
         )
@@ -72,16 +67,16 @@ class CRnn3(nn.Module):
         self.conv4 = ConvBlock(in_channels=96, out_channels=128)
 
         self.gru = nn.GRU(
-            input_size=1024, 
-            hidden_size=256, 
-            num_layers=2, 
+            input_size=1792, 
+            hidden_size=512, 
+            num_layers=3, 
             bias=True, 
             batch_first=True, 
             dropout=0., 
             bidirectional=True
         )
 
-        self.onset_fc = nn.Linear(512, 128)
+        self.onset_fc = nn.Linear(1024, 128)
 
     def forward(self, audio):
         """Separation model.

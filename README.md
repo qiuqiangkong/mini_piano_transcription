@@ -7,9 +7,9 @@
 git clone https://github.com/qiuqiangkong/mini_piano_transcription
 
 # Install Python environment
-conda create --name mini_piano_transcription python=3.8
+conda create --name piano_transcription python=3.8
 
-conda activate mini_piano_transcription
+conda activate piano_transcription
 
 # Install Python packages dependencies.
 sh env.sh

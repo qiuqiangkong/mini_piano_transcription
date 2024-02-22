@@ -8,7 +8,7 @@ import soundfile
 import matplotlib.pyplot as plt
 from pathlib import Path
 import torch.optim as optim
-from data.maestro import MaestroDataset
+from data.maestro import Maestro
 from data.collate import collate_fn
 from models.crnn import CRnn
 from tqdm import tqdm
@@ -24,7 +24,7 @@ def train(args):
     # Default parameters
     device = "cuda"
     batch_size = 16
-    num_workers = 32
+    num_workers = 0
     save_step_frequency = 2000
     training_steps = 100000
     debug = False
@@ -34,7 +34,7 @@ def train(args):
     root = "/datasets/maestro-v2.0.0/maestro-v2.0.0"
 
     # Dataset
-    dataset = MaestroDataset(
+    dataset = Maestro(
         root=root,
         split="train",
         segment_seconds=10.,

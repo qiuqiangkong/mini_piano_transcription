@@ -8,7 +8,8 @@ import soundfile
 import matplotlib.pyplot as plt
 from pathlib import Path
 import torch.optim as optim
-from data.maestro import Maestro
+# from data.maestro import Maestro
+from data.slakh2100 import Slakh2100
 from data.collate import collate_fn
 from models.crnn import CRnn
 from tqdm import tqdm
@@ -28,14 +29,15 @@ def train(args):
     save_step_frequency = 2000
     training_steps = 100000
     debug = False
-    filename = pathlib.Path(__file__).stem
+    filename = Path(__file__).stem
 
     checkpoints_dir = Path("./checkpoints", filename, model_name)
     
-    root = "/datasets/maestro-v2.0.0/maestro-v2.0.0"
+    # root = "/datasets/maestro-v2.0.0/maestro-v2.0.0"
+    root = "/datasets/slakh2100_flac"
 
     # Dataset
-    dataset = Maestro(
+    dataset = Slakh2100(
         root=root,
         split="train",
         segment_seconds=10.,

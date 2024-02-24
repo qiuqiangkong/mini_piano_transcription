@@ -9,6 +9,7 @@ import pretty_midi
 import numpy as np
 
 from data.tokenizers import Tokenizer3
+from data.midi import read_single_track_midi, notes_to_targets, pedals_to_targets
 
 
 class Maestro:
@@ -49,12 +50,12 @@ class Maestro:
     def __getitem__(self, index):
 
 
-        audio_index = random.randint(0, self.audios_num - 1)
-        audio_index = 27
+        # audio_index = random.randint(0, self.audios_num - 1)
+        # index = 27
 
-        audio_path = Path(self.root, self.audio_filenames[audio_index])
-        midi_path = Path(self.root, self.midi_filenames[audio_index]) 
-        duration = self.durations[audio_index]
+        audio_path = Path(self.root, self.audio_filenames[index])
+        midi_path = Path(self.root, self.midi_filenames[index]) 
+        duration = self.durations[index]
 
         segment_start_time = random.uniform(0, duration - self.segment_seconds)
 
@@ -75,12 +76,14 @@ class Maestro:
         librosa.get_samplerate(audio_path)
 
         data = {
-            "audio": audio,
-            "tokens": targets_dict["tokens"],
-            "frames_roll": targets_dict["frames_roll"],
-            "onsets_roll": targets_dict["onsets_roll"],
             "audio_path": audio_path,
             "segment_start_time": segment_start_time,
+            "audio": audio,
+            # "tokens": targets_dict["tokens"],
+            "frame_roll": targets_dict["frame_roll"],
+            "onset_roll": targets_dict["onset_roll"],
+            "frame_roll": targets_dict["onset_roll"],
+            "velocity_roll": targets_dict["velocity_roll"],
         }
 
         return data
@@ -118,18 +121,62 @@ class Maestro:
 
     def load_targets(self, midi_path, segment_start_time):
 
-        midi_data = pretty_midi.PrettyMIDI(str(midi_path))
+        notes, pedals = read_single_track_midi(midi_path)
 
-        assert len(midi_data.instruments) == 1
+        seg_start = segment_start_time
+        seg_end = seg_start + self.segment_seconds
 
-        notes = midi_data.instruments[0].notes
-        control_changes = midi_data.instruments[0].control_changes
-        
-        # Get pedals.
-        pedals = get_pedals(control_changes)
+        note_data = notes_to_targets(
+            notes=notes,
+            segment_frames=self.segment_frames, 
+            segment_start=seg_start,
+            segment_end=seg_end,
+            fps=self.fps
+        )
 
-        # Extend note offsets by pedal information.
-        notes = extend_offset_by_pedal(notes, pedals)
+        pedal_data = pedals_to_targets(
+            pedals=pedals,
+            segment_frames=self.segment_frames, 
+            segment_start=seg_start,
+            segment_end=seg_end,
+            fps=self.fps
+        )
+
+        frame_roll = note_data["frame_roll"]
+        onset_roll = note_data["onset_roll"]
+        offset_roll = note_data["offset_roll"]
+        velocity_roll = note_data["velocity_roll"]
+
+        ped_frame_roll = pedal_data["frame_roll"]
+        ped_onset_roll = pedal_data["onset_roll"]
+        ped_offset_roll = pedal_data["offset_roll"]
+
+        total_events = note_data["events"] + pedal_data["events"]
+        total_events.sort(key=lambda event: event["time"])
+
+        # words.append("<eos>")
+
+
+        # Convert words to tokens.
+        # tokens = []
+        # for word in words:
+        #     token = self.tokenizer.stoi(word)
+        #     tokens.append(token)
+
+        targets_dict = {
+            # "tokens": tokens,
+            "frame_roll": frame_roll,
+            "onset_roll": onset_roll,
+            "offset_roll": onset_roll,
+            "velocity_roll": onset_roll,
+        }
+
+        return targets_dict
+
+    '''
+    def load_targets(self, midi_path, segment_start_time):
+
+        notes, pedals = read_single_track_midi(midi_path)
 
         # Load active notes inside the segment.
         active_notes = []
@@ -138,7 +185,6 @@ class Maestro:
         for i in range(len(notes)):
             if segment_start_time <= notes[i].start < segment_end_time:
                 active_notes.append(notes[i])
-        
 
         # Covert notes information to words.
         frames_roll = np.zeros((self.segment_frames, self.pitches_num))
@@ -179,87 +225,5 @@ class Maestro:
         }
 
         return targets_dict
+    '''
 
-
-def get_pedals(control_changes):
-
-    onset = None
-    offset = None
-    pairs = []
-
-    control_changes.sort(key=lambda cc: cc.time)
-
-    for cc in control_changes:
-
-        if cc.number == 64:
-
-            if cc.value >= 64 and onset is None:
-                onset = cc.time
-
-            elif cc.value < 64 and onset is not None:
-                offset = cc.time
-                pairs.append((onset, offset))
-                onset = None
-                offset = None
-
-    if onset is not None and offset is None:
-        offset = control_changes[-1].time
-        pairs.append((onset, offset))
-
-    return pairs
-
-
-def extend_offset_by_pedal(notes, pedals):
-
-    notes.sort(key=lambda note: note.end)
-
-    notes_dict = {pitch: [] for pitch in range(128)}
-
-    while len(pedals) > 0 and len(notes) > 0:
-
-        ped_on, ped_off = pedals[0]
-
-        while notes:
-
-            note = notes[0]
-            note_on = note.start
-            note_off = note.end
-            pitch = note.pitch
-            velocity = note.velocity
-
-            if note_off < ped_on:
-                notes_dict[pitch].append(note)
-                notes.pop(0)
-
-            elif ped_on <= note_off < ped_off:
-
-                new_note = pretty_midi.Note(
-                    pitch=pitch, 
-                    start=note_on, 
-                    end=ped_off, 
-                    velocity=velocity
-                )
-
-                if len(notes_dict[pitch]) > 0:
-                    if notes_dict[pitch][-1].end > new_note.start:
-                        notes_dict[pitch][-1].end = new_note.start
-                notes_dict[pitch].append(new_note)
-                notes.pop(0)
-
-            elif ped_off <= note_off:
-                pedals.pop(0)
-                break
-
-            else:
-                raise NotImplementedError 
-
-    for note in notes:
-        notes_dict[note.pitch].append(note)
-
-    new_notes = []
-    for pitch in notes_dict.keys():
-        new_notes.extend(notes_dict[pitch])
-    
-    new_notes.sort(key=lambda note: note.start)
-
-    return new_notes

@@ -231,7 +231,6 @@ def pedals_to_targets(pedals, segment_frames, segment_start, segment_end, fps):
     #
     seg_start = segment_start
     seg_end = segment_end
-    pitches_num = 128
 
     # Covert pedals information to words.
     frame_roll = np.zeros(segment_frames)
@@ -309,7 +308,121 @@ def pedals_to_targets(pedals, segment_frames, segment_start, segment_end, fps):
     return data
 
 
-def add():
+def read_beats(midi_path):
+
+    midi_data = pretty_midi.PrettyMIDI(str(midi_path))
+
+    beats = midi_data.get_beats()
+    downbeats = midi_data.get_downbeats()
+
+    return beats, downbeats
+
+
+def beats_to_targets(beats, downbeats, segment_frames, segment_start, segment_end, fps):
+
+    #
+    seg_start = segment_start
+    seg_end = segment_end
+    
+    # Covert pedals information to words.
+    beat_roll = np.zeros(segment_frames)
+    downbeat_roll = np.zeros(segment_frames)
+
+    events = []
+
+    for beat in beats:
+
+        if seg_start <= beat <= seg_end:
+
+            beat_time = beat - seg_start
+            beat_idx = round(beat_time * fps)
+            beat_roll[beat_idx] += 1
+
+            events.append({
+                "name": "beat",
+                "time": beat_time, 
+            })
+
+    for beat in downbeats:
+
+        if seg_start <= beat <= seg_end:
+
+            beat_time = beat - seg_start
+            beat_idx = round(beat_time * fps)
+            downbeat_roll[beat_idx] += 1
+
+            events.append({
+                "name": "downbeat",
+                "time": beat_time, 
+            })
+
+    events.sort(key=lambda event: event["time"])
+
+    data = {
+        "beat_roll": beat_roll,
+        "downbeat_roll": downbeat_roll,
+        "events": events,
+    }
+
+    return data
+
+
+def events_to_words(events):
+
+    words = ["<sos>"]
+
+    for event in events:
+
+        name = event["name"]
+        time = event["time"]
+        words.append("name={}".format(name))
+        words.append("time={}".format(time))
+
+        if name in ["note_on"]:
+
+            words.append("pitch={}".format(event["pitch"]))
+            if "velocity" in event.keys():
+                words.append("velocity={}".format(event["velocity"])) 
+
+        elif name in ["note_off", "note_sustain"]:
+
+            words.append("pitch={}".format(event["pitch"]))
+
+        elif name in ["pedal_on", "pedal_off", "pedal_sustain"]:
+            pass
+
+        elif name in ["beat", "downbeat"]:
+            pass
+
+        else:
+            raise NotImplementedError
+
+    words.append("<eos>")
+
+    return words
+
+
+def words_to_tokens(words, tokenizer):
+
+    tokens = []
+
+    for word in words:
+        tokens.append(tokenizer.stoi(word))
+
+    return tokens
+
+
+def tokens_to_words(tokens, tokenizer):
+
+    words = []
+
+    for token in tokens:
+        words.append(tokenizer.itos(token))
+
+    return words
+
+
+def test():
 
     midi_path = "/home/qiuqiangkong/datasets/maestro-v2.0.0/2004/MIDI-Unprocessed_SMF_02_R1_2004_01-05_ORIG_MID--AUDIO_02_R1_2004_06_Track06_wav.midi"
 
@@ -356,4 +469,4 @@ def add():
 
 if __name__ == '__main__':
 
-    add()
+    test()

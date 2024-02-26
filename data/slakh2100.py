@@ -12,8 +12,8 @@ import numpy as np
 import yaml
 import matplotlib.pyplot as plt
 
-from data.tokenizers import Tokenizer3
-from data.midi import read_single_track_midi, notes_to_targets, pedals_to_targets
+from data.tokenizers import Tokenizer
+from data.io import read_single_track_midi, notes_to_targets, pedals_to_targets
 
 
 class Slakh2100:
@@ -23,21 +23,17 @@ class Slakh2100:
         root: str = None, 
         split: str = "train",
         segment_seconds: float = 10.,
+        tokenizer=None,
     ):
     
         self.root = root
         self.split = split
         self.segment_seconds = segment_seconds
 
-        self.tokenizer = Tokenizer3()
-
         self.sample_rate = 16000
         self.fps = 100
         self.pitches_num = 128
         self.segment_frames = int(self.segment_seconds * self.fps) + 1
-
-        # self.load_meta()
-        # from IPython import embed; embed(using=False); os._exit(0)
 
         self.audios_dir = Path(root, split)
         self.audio_names = sorted(os.listdir(self.audios_dir))
@@ -50,7 +46,6 @@ class Slakh2100:
 
         # audio_index = random.randint(0, self.audios_num - 1)
         # audio_index = 0
-
 
         song_dir = Path(self.audios_dir, self.audio_names[index])
         audio_path = Path(song_dir, "mix.flac")
@@ -97,11 +92,13 @@ class Slakh2100:
         # targets_dict = self.load_targets(midi_path, segment_start_time)
         # shape: (tokens_num,)
 
+        from IPython import embed; embed(using=False); os._exit(0)
+
         data = {
             "audio": audio,
             "frame_roll": red_frame_roll,
-            "red_onset_roll": red_onset_roll,
-            "red_offset_roll": red_offset_roll,
+            "onset_roll": red_onset_roll,
+            "offset_roll": red_offset_roll,
         }
 
         return data
@@ -154,6 +151,7 @@ class Slakh2100:
             segment_end=seg_end,
             fps=self.fps
         )
+        from IPython import embed; embed(using=False); os._exit(0)
 
         return note_data
 
@@ -190,3 +188,34 @@ class Slakh2100:
     def __len__(self):
 
         return self.audios_num
+
+
+def test():
+
+    root = "/datasets/slakh2100_flac"
+
+    tokenizer = Tokenizer()
+
+    # Dataset
+    dataset = Slakh2100(
+        root=root,
+        split="train",
+        segment_seconds=10.,
+        tokenizer=tokenizer,
+    )
+
+    data = dataset[0]
+
+    tokens = data["token"]
+
+    words = tokens_to_words(tokens, tokenizer)
+
+    # TODO
+    # words_to_events()
+
+    from IPython import embed; embed(using=False); os._exit(0)
+
+
+if __name__ == "__main__":
+
+    test()

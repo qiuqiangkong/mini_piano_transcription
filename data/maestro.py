@@ -8,8 +8,8 @@ import torchaudio
 import pretty_midi
 import numpy as np
 
-from data.tokenizers import Tokenizer3
-from data.midi import read_single_track_midi, notes_to_targets, pedals_to_targets
+from data.io import read_single_track_midi, notes_to_targets, pedals_to_targets, events_to_words, words_to_tokens, tokens_to_words
+from data.tokenizers import Tokenizer
 
 
 class Maestro:
@@ -19,13 +19,13 @@ class Maestro:
         root: str = None, 
         split: str = "train",
         segment_seconds: float = 10.,
+        tokenizer=None,
     ):
     
         self.root = root
         self.split = split
         self.segment_seconds = segment_seconds
-
-        self.tokenizer = Tokenizer3()
+        self.tokenizer = tokenizer
 
         self.sample_rate = 16000
         self.fps = 100
@@ -72,18 +72,17 @@ class Maestro:
         targets_dict = self.load_targets(midi_path, segment_start_time)
         # shape: (tokens_num,)
 
-        # from IPython import embed; embed(using=False); os._exit(0)
         librosa.get_samplerate(audio_path)
 
         data = {
             "audio_path": audio_path,
             "segment_start_time": segment_start_time,
             "audio": audio,
-            # "tokens": targets_dict["tokens"],
             "frame_roll": targets_dict["frame_roll"],
             "onset_roll": targets_dict["onset_roll"],
             "frame_roll": targets_dict["onset_roll"],
             "velocity_roll": targets_dict["velocity_roll"],
+            "token": targets_dict["token"],
         }
 
         return data
@@ -154,76 +153,48 @@ class Maestro:
         total_events = note_data["events"] + pedal_data["events"]
         total_events.sort(key=lambda event: event["time"])
 
-        # words.append("<eos>")
+        words = events_to_words(total_events)
 
-
-        # Convert words to tokens.
-        # tokens = []
-        # for word in words:
-        #     token = self.tokenizer.stoi(word)
-        #     tokens.append(token)
+        tokens = words_to_tokens(words, self.tokenizer)
 
         targets_dict = {
-            # "tokens": tokens,
             "frame_roll": frame_roll,
             "onset_roll": onset_roll,
             "offset_roll": onset_roll,
             "velocity_roll": onset_roll,
+            "event": total_events,
+            "token": tokens
         }
 
         return targets_dict
 
-    '''
-    def load_targets(self, midi_path, segment_start_time):
 
-        notes, pedals = read_single_track_midi(midi_path)
+def test():
 
-        # Load active notes inside the segment.
-        active_notes = []
-        segment_end_time = segment_start_time + self.segment_seconds
-        
-        for i in range(len(notes)):
-            if segment_start_time <= notes[i].start < segment_end_time:
-                active_notes.append(notes[i])
+    root = "/datasets/maestro-v2.0.0/maestro-v2.0.0"
 
-        # Covert notes information to words.
-        frames_roll = np.zeros((self.segment_frames, self.pitches_num))
-        onsets_roll = np.zeros((self.segment_frames, self.pitches_num))
+    tokenizer = Tokenizer()
 
-        words = ["<sos>"]
+    # Dataset
+    dataset = Maestro(
+        root=root,
+        split="train",
+        segment_seconds=10.,
+        tokenizer=tokenizer,
+    )
 
+    data = dataset[0]
 
-        for note in active_notes:
+    tokens = data["token"]
 
-            onset_time = note.start - segment_start_time
-            offset_time = note.end - segment_start_time
-            pitch = note.pitch
-            velocity = note.velocity
+    words = tokens_to_words(tokens, tokenizer)
 
-            words.append("<time>={}".format(onset_time))
-            words.append("<pitch>={}".format(pitch))
-            words.append("<velocity>={}".format(velocity))
+    # TODO
+    # words_to_events()
 
-            onset_index = int(np.round(onset_time * self.fps))
-            offset_index = int(np.round(offset_time * self.fps))
-            frames_roll[onset_index : min(self.segment_frames, offset_index + 1), pitch] = 1
-            onsets_roll[onset_index, pitch] = 1
-
-        words.append("<eos>")
+    from IPython import embed; embed(using=False); os._exit(0)
 
 
-        # Convert words to tokens.
-        tokens = []
-        for word in words:
-            token = self.tokenizer.stoi(word)
-            tokens.append(token)
+if __name__ == "__main__":
 
-        targets_dict = {
-            "tokens": tokens,
-            "frames_roll": frames_roll,
-            "onsets_roll": onsets_roll,
-        }
-
-        return targets_dict
-    '''
-
+    test()

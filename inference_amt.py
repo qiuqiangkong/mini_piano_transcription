@@ -32,7 +32,8 @@ def inference(args):
     sample_rate = 16000
 
     # Load checkpoint
-    checkpoint_path = Path("checkpoints", model_name, "latest.pth")
+    # checkpoint_path = Path("checkpoints", model_name, "latest.pth")
+    checkpoint_path = "./checkpoints/train_slakh2100/CRnn3/latest.pth"
     # checkpoint_path = Path("checkpoints", model_name, "epoch=100.pth")
 
     model = get_model(model_name)
@@ -104,7 +105,7 @@ def inference(args):
 
         est_midi_path = Path(output_dir, "{}.mid".format(Path(audio_path).stem))
         post_process(onset_rolls, est_midi_path)
-        
+
         ref_midi_path = midi_paths[audio_idx]
         ref_intervals, ref_pitches = parse_midi(ref_midi_path)
         est_intervals, est_pitches = parse_midi(est_midi_path)
@@ -208,6 +209,7 @@ def parse_midi(midi_path):
 def deduplicate_array(array):
 
     new_array = []
+
 
     for pair in array:
         time = pair[0]

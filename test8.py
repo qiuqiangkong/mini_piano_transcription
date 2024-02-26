@@ -10,6 +10,7 @@ from data.maestro import Maestro
 from data.slakh2100 import Slakh2100
 from data.collate import collate_fn
 from train import Sampler
+from data.midi import read_beats, beats_to_targets
 
 
 def add():
@@ -74,6 +75,63 @@ def add3():
     from IPython import embed; embed(using=False); os._exit(0)
 
 
+def _sub(midi_path):
+
+    midi_data = pretty_midi.PrettyMIDI(str(midi_path))
+    
+    # assert len(midi_data.instruments) == 1
+
+    # notes = midi_data.instruments[0].notes
+    # control_changes = midi_data.instruments[0].control_changes
+    
+    print(midi_data.get_tempo_changes())
+    beats = midi_data.get_beats()
+    downbeats = midi_data.get_downbeats()
+
+    from IPython import embed; embed(using=False); os._exit(0) 
+
+    # return notes, pedals
+
+
+def add4():
+
+    midi_path = "/home/qiuqiangkong/datasets/maestro-v2.0.0/2004/MIDI-Unprocessed_SMF_02_R1_2004_01-05_ORIG_MID--AUDIO_02_R1_2004_06_Track06_wav.midi"
+
+    # _sub(midi_path)
+
+    # root = "/datasets/slakh2100_flac/train"
+    # audio_names = sorted(os.listdir(root))
+
+    # for audio_name in audio_names:
+    #     print(audio_name)
+    #     song_dir = Path(root, audio_name)
+    #     audio_path = Path(song_dir, "mix.flac")
+    #     meta_path = Path(song_dir, "metadata.yaml")
+    #     midi_path = Path(song_dir, "all_src.mid")
+
+    #     _sub(midi_path)
+
+
+
+
+
+def add5():
+
+    midi_path = "/home/qiuqiangkong/datasets/maestro-v2.0.0/2004/MIDI-Unprocessed_SMF_02_R1_2004_01-05_ORIG_MID--AUDIO_02_R1_2004_06_Track06_wav.midi"
+
+    t1 = time.time()
+    beats, downbeats = read_beats(midi_path)
+
+    segment_frames = 1001
+    seg_start = 25.3
+    seg_end = 35.
+    fps = 100
+
+    data = beats_to_targets(beats, downbeats, segment_frames, seg_start, seg_end, fps)
+    print(time.time() - t1) 
+
+    from IPython import embed; embed(using=False); os._exit(0)
+
 
 if __name__ == '__main__':
-    add2()
+    add5()

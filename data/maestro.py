@@ -94,10 +94,10 @@ class Maestro:
 
     def load_audio(self, audio_path, segment_start_time):
 
-        maestro_sr = librosa.get_samplerate(audio_path)
+        orig_sr = librosa.get_samplerate(audio_path)
 
-        segment_start_sample = int(segment_start_time * maestro_sr)
-        segment_samples = int(self.segment_seconds * maestro_sr)
+        segment_start_sample = int(segment_start_time * orig_sr)
+        segment_samples = int(self.segment_seconds * orig_sr)
 
         audio, fs = torchaudio.load(
             audio_path, 
@@ -111,7 +111,7 @@ class Maestro:
 
         audio = torchaudio.functional.resample(
             waveform=audio, 
-            orig_freq=maestro_sr, 
+            orig_freq=orig_sr, 
             new_freq=self.sample_rate
         )
         # shape: (audio_samples,)
@@ -120,7 +120,8 @@ class Maestro:
 
     def load_targets(self, midi_path, segment_start_time):
 
-        notes, pedals = read_single_track_midi(midi_path)
+        # Read notes and extend notes by pedal information.
+        notes, pedals = read_single_track_midi(midi_path=midi_path, extend_pedal=True)
 
         seg_start = segment_start_time
         seg_end = seg_start + self.segment_seconds
@@ -151,7 +152,8 @@ class Maestro:
         ped_offset_roll = pedal_data["offset_roll"]
 
         total_events = note_data["events"] + pedal_data["events"]
-        total_events.sort(key=lambda event: event["time"])
+
+        total_events.sort(key=lambda event: (event["time"], event["name"]))
 
         words = events_to_words(total_events)
 
@@ -187,6 +189,7 @@ def test():
 
     tokens = data["token"]
 
+    # Convert tokens to words
     words = tokens_to_words(tokens, tokenizer)
 
     # TODO

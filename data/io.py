@@ -12,7 +12,7 @@ class Pedal:
         self.end = end
 
 
-def read_single_track_midi(midi_path):
+def read_single_track_midi(midi_path, extend_pedal):
 
     midi_data = pretty_midi.PrettyMIDI(str(midi_path))
     
@@ -25,7 +25,8 @@ def read_single_track_midi(midi_path):
     pedals = get_pedals(control_changes)
     
     # Extend note offsets by pedal information.
-    notes = extend_offset_by_pedal(notes, pedals)
+    if extend_pedal:
+        notes = extend_offset_by_pedal(notes, pedals)
 
     return notes, pedals
 
@@ -129,6 +130,10 @@ def write_notes_to_midi(notes, midi_path):
     print("Write MIDI to {}".format(midi_path))
 
 
+def time_to_grid(time, fps):
+    return round(time * fps) / fps
+
+
 def notes_to_targets(notes, segment_frames, segment_start, segment_end, fps):
 
     #
@@ -150,6 +155,9 @@ def notes_to_targets(notes, segment_frames, segment_start, segment_end, fps):
         offset_time = note.end - seg_start
         pitch = note.pitch
         velocity = note.velocity
+
+        onset_time = time_to_grid(onset_time, fps)
+        offset_time = time_to_grid(offset_time, fps)
         
         if 0 <= note.start < seg_start and seg_start <= note.end < seg_end:
 
@@ -213,7 +221,7 @@ def notes_to_targets(notes, segment_frames, segment_start, segment_end, fps):
                 "velocity": velocity
             })
 
-    events.sort(key=lambda event: event["time"])
+    events.sort(key=lambda event: (event["time"], event["name"], event["pitch"]))
 
     data = {
         "frame_roll": frame_roll,
@@ -243,6 +251,9 @@ def pedals_to_targets(pedals, segment_frames, segment_start, segment_end, fps):
 
         onset_time = pedal.start - seg_start
         offset_time = pedal.end - seg_start
+
+        onset_time = time_to_grid(onset_time, fps)
+        offset_time = time_to_grid(offset_time, fps)
         
         if 0 <= pedal.start < seg_start and seg_start <= pedal.end < seg_end:
 
@@ -296,7 +307,7 @@ def pedals_to_targets(pedals, segment_frames, segment_start, segment_end, fps):
                 "time": onset_time, 
             })
 
-    events.sort(key=lambda event: event["time"])
+    events.sort(key=lambda event: (event["time"], event["name"]))
 
     data = {
         "frame_roll": frame_roll,
@@ -329,7 +340,7 @@ def beats_to_targets(beats, downbeats, segment_frames, segment_start, segment_en
     downbeat_roll = np.zeros(segment_frames)
 
     events = []
-
+    from IPython import embed; embed(using=False); os._exit(0)
     for beat in beats:
 
         if seg_start <= beat <= seg_end:
@@ -375,6 +386,7 @@ def events_to_words(events):
 
         name = event["name"]
         time = event["time"]
+
         words.append("name={}".format(name))
         words.append("time={}".format(time))
 

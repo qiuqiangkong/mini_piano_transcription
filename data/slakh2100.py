@@ -45,7 +45,7 @@ class Slakh2100:
 
 
         # audio_index = random.randint(0, self.audios_num - 1)
-        # audio_index = 0
+        audio_index = 0
 
         song_dir = Path(self.audios_dir, self.audio_names[index])
         audio_path = Path(song_dir, "mix.flac")
@@ -67,18 +67,29 @@ class Slakh2100:
 
             if stem["audio_rendered"] is True:
 
-                inst_class = stem["inst_class"]
-                is_drum = stem["is_drum"]
-
                 midi_path = Path(song_dir, "MIDI", "{}.mid".format(name)) 
-                note_data = self.add(midi_path, segment_start_time)
-                note_data["slakh2100_inst_class"] = inst_class
-                note_data["slakh2100_is_drum"] = is_drum
+                # note_data = self.add(midi_path, segment_start_time)
+
+                notes, pedals = read_single_track_midi(midi_path)
+                from IPython import embed; embed(using=False); os._exit(0)
+
+                note_data = notes_to_targets(
+                    notes=notes,
+                    segment_frames=self.segment_frames, 
+                    segment_start=segment_start_time,
+                    segment_end=segment_start_time + self.segment_seconds,
+                    fps=self.fps
+                )
+
+                note_data["slakh2100_inst_class"] = stem["inst_class"]
+                note_data["slakh2100_is_drum"] = stem["is_drum"]
 
                 mt_note_data[name] = note_data
 
         mt_events = self.multi_tracks_data_to_events(mt_note_data)
-        
+
+        mt_events.sort(key=lambda event: (event["time"], event["name"]))
+
         red_frame_roll, red_onset_roll, red_offset_roll = self.multi_tracks_data_to_reduction(mt_note_data)
 
         # fig, axs = plt.subplots(2,1, sharex=True)
@@ -208,6 +219,7 @@ def test():
 
     tokens = data["token"]
 
+    # Convert tokens to words
     words = tokens_to_words(tokens, tokenizer)
 
     # TODO

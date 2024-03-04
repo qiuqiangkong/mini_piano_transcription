@@ -3,6 +3,7 @@ import torch
 import librosa
 
 
+'''
 def collate_fn(list_data_dict):
 
     max_tokens = 784
@@ -32,5 +33,25 @@ def collate_fn(list_data_dict):
 
         else:
             data_dict[key] = torch.Tensor(np.stack([dd[key] for dd in list_data_dict], axis=0))
+
+    return data_dict
+'''
+
+
+def collate_fn(list_data_dict):
+
+    data_dict = {}
+
+    for key in list_data_dict[0].keys():
+
+        if key in ["tokens"]:
+            data_dict[key] = torch.LongTensor(np.stack([dd[key] for dd in list_data_dict], axis=0))
+
+        elif key in ["audio", "frame_roll", "onset_roll", "offset_roll", "velocity_roll", "ped_frame_roll", "ped_onset_roll", "ped_offset_roll"]:
+
+            data_dict[key] = torch.Tensor(np.stack([dd[key] for dd in list_data_dict], axis=0))
+
+        else:
+            data_dict[key] = [dd[key] for dd in list_data_dict]
 
     return data_dict

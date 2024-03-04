@@ -15,6 +15,8 @@ from tqdm import tqdm
 import museval
 import argparse
 
+from data.tokenizers import Tokenizer
+
 
 def train(args):
 
@@ -28,17 +30,21 @@ def train(args):
     save_step_frequency = 2000
     training_steps = 100000
     debug = False
-    filename = pathlib.Path(__file__).stem
+    filename = Path(__file__).stem
 
     checkpoints_dir = Path("./checkpoints", filename, model_name)
     
     root = "/datasets/maestro-v2.0.0/maestro-v2.0.0"
+
+    tokenizer = Tokenizer()
 
     # Dataset
     dataset = Maestro(
         root=root,
         split="train",
         segment_seconds=10.,
+        tokenizer=tokenizer,
+        max_token_len=1024,
     )
 
     # Sampler

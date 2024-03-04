@@ -11,6 +11,9 @@ class Pedal:
         self.start = start
         self.end = end
 
+    def __str__(self):
+        return "Pedal(start={}, end={})".format(self.start, self.end)
+
 
 def read_single_track_midi(midi_path, extend_pedal):
 
@@ -70,14 +73,14 @@ def extend_offset_by_pedal(notes, pedals):
     notes.sort(key=lambda note: note.end)
 
     notes_dict = {pitch: [] for pitch in range(pitches_num)}
-
+    
     while len(pedals) > 0 and len(notes) > 0:
 
-        pedal = pedals[0]
+        pedal = pedals[0]  # Get the first pedal.
 
         while notes:
 
-            note = notes[0]
+            note = notes[0]  # Get the first note.
             pitch = note.pitch
             velocity = note.velocity
 
@@ -94,11 +97,11 @@ def extend_offset_by_pedal(notes, pedals):
                     velocity=velocity
                 )
 
-                if len(notes_dict[pitch]) > 0:
-                    if notes_dict[pitch][-1].end > new_note.start:
-                        notes_dict[pitch][-1].end = new_note.start
                 notes_dict[pitch].append(new_note)
                 notes.pop(0)
+
+                # if new_note.start > 19.4 and new_note.pitch == 75:
+                #     from IPython import embed; embed(using=False); os._exit(0)
 
             elif pedal.end <= note.end < math.inf:
                 pedals.pop(0)
@@ -107,14 +110,24 @@ def extend_offset_by_pedal(notes, pedals):
             else:
                 raise NotImplementedError 
 
+    # 
     for note in notes:
         notes_dict[note.pitch].append(note)
+
+    # 
+    for pitch in notes_dict.keys():
+        len_notes = len(notes_dict[pitch])
+        if len_notes >= 2:
+            for i in range(len_notes - 1):
+                if notes_dict[pitch][i].end > notes_dict[pitch][i + 1].start:
+                    notes_dict[pitch][i].end = notes_dict[pitch][i + 1].start
 
     new_notes = []
     for pitch in notes_dict.keys():
         new_notes.extend(notes_dict[pitch])
     
     new_notes.sort(key=lambda note: note.start)
+
 
     return new_notes
 
@@ -134,7 +147,7 @@ def time_to_grid(time, fps):
     return round(time * fps) / fps
 
 
-def notes_to_targets(notes, segment_frames, segment_start, segment_end, fps):
+def notes_to_rolls_and_events(notes, segment_frames, segment_start, segment_end, fps, label):
 
     #
     seg_start = segment_start
@@ -168,12 +181,14 @@ def notes_to_targets(notes, segment_frames, segment_start, segment_end, fps):
             events.append({
                 "name": "note_sustain", 
                 "time": 0, 
+                "label": label,
                 "pitch": pitch, 
                 "velocity": velocity
             })
             events.append({
                 "name": "note_off",
                 "time": offset_time, 
+                "label": label,
                 "pitch": pitch,
             })
 
@@ -184,6 +199,7 @@ def notes_to_targets(notes, segment_frames, segment_start, segment_end, fps):
             events.append({
                 "name": "note_sustain", 
                 "time": 0, 
+                "label": label,
                 "pitch": pitch, 
                 "velocity": velocity
             })
@@ -199,12 +215,14 @@ def notes_to_targets(notes, segment_frames, segment_start, segment_end, fps):
             events.append({
                 "name": "note_on",
                 "time": onset_time, 
+                "label": label,
                 "pitch": pitch, 
                 "velocity": velocity
             })
             events.append({
                 "name": "note_off",
                 "time": offset_time, 
+                "label": label,
                 "pitch": pitch, 
             })
 
@@ -217,11 +235,12 @@ def notes_to_targets(notes, segment_frames, segment_start, segment_end, fps):
             events.append({
                 "name": "note_on",
                 "time": onset_time, 
+                "label": label,
                 "pitch": pitch, 
                 "velocity": velocity
             })
 
-    events.sort(key=lambda event: (event["time"], event["name"], event["pitch"]))
+    events.sort(key=lambda event: (event["time"], event["name"], event["label"], event["pitch"]))
 
     data = {
         "frame_roll": frame_roll,
@@ -234,7 +253,7 @@ def notes_to_targets(notes, segment_frames, segment_start, segment_end, fps):
     return data
 
 
-def pedals_to_targets(pedals, segment_frames, segment_start, segment_end, fps):
+def pedals_to_rolls_and_events(pedals, segment_frames, segment_start, segment_end, fps, label):
 
     #
     seg_start = segment_start
@@ -264,10 +283,12 @@ def pedals_to_targets(pedals, segment_frames, segment_start, segment_end, fps):
             events.append({
                 "name": "pedal_sustain", 
                 "time": 0, 
+                "label": label,
             })
             events.append({
                 "name": "pedal_off",
                 "time": offset_time, 
+                "label": label,
             })
 
         if 0 <= pedal.start < seg_start and seg_end <= pedal.end < math.inf:
@@ -277,6 +298,7 @@ def pedals_to_targets(pedals, segment_frames, segment_start, segment_end, fps):
             events.append({
                 "name": "pedal_sustain", 
                 "time": 0, 
+                "label": label,
             })
 
         elif seg_start <= pedal.start <= seg_end and seg_start <= pedal.end <= seg_end:
@@ -290,10 +312,12 @@ def pedals_to_targets(pedals, segment_frames, segment_start, segment_end, fps):
             events.append({
                 "name": "pedal_on",
                 "time": onset_time, 
+                "label": label,
             })
             events.append({
                 "name": "pedal_off",
                 "time": offset_time,
+                "label": label,
             })
 
         elif seg_start <= pedal.start <= seg_end and seg_end < pedal.end < math.inf:
@@ -305,9 +329,10 @@ def pedals_to_targets(pedals, segment_frames, segment_start, segment_end, fps):
             events.append({
                 "name": "pedal_on",
                 "time": onset_time, 
+                "label": label,
             })
 
-    events.sort(key=lambda event: (event["time"], event["name"]))
+    events.sort(key=lambda event: (event["time"], event["name"], event["label"]))
 
     data = {
         "frame_roll": frame_roll,
@@ -318,6 +343,53 @@ def pedals_to_targets(pedals, segment_frames, segment_start, segment_end, fps):
 
     return data
 
+
+'''
+def drums_to_rolls_and_events(notes, segment_frames, segment_start, segment_end, fps, label):
+
+    #
+    seg_start = segment_start
+    seg_end = segment_end
+    pitches_num = 128
+
+    onset_roll = np.zeros((segment_frames, pitches_num))
+    velocity_roll = np.zeros((segment_frames, pitches_num))
+
+    events = []
+
+    for note in notes:
+
+        onset_time = note.start - seg_start
+        pitch = note.pitch
+        velocity = note.velocity
+
+        onset_time = time_to_grid(onset_time, fps)
+
+        elif seg_start <= note.start <= seg_end:
+
+            onset_idx = round(onset_time * fps)
+            onset_roll[onset_idx, pitch] += 1
+
+            events.append({
+                "name": "note_on",
+                "time": onset_time, 
+                "label": label,
+                "pitch": pitch, 
+                "velocity": velocity
+            })
+
+    events.sort(key=lambda event: (event["time"], event["name"], event["pitch"]))
+
+    data = {
+        "frame_roll": frame_roll,
+        "onset_roll": onset_roll,
+        "offset_roll": offset_roll,
+        "velocity_roll": offset_roll,
+        "events": events,
+    }
+
+    return data
+'''
 
 def read_beats(midi_path):
 
@@ -378,6 +450,55 @@ def beats_to_targets(beats, downbeats, segment_frames, segment_start, segment_en
     return data
 
 
+def events_to_notes(events):
+
+    pitches_num = 128
+
+    note_on_buffer = {pitch: None for pitch in range(pitches_num)}
+    notes = []
+
+    for e in events:
+        
+        if e["name"] == "note_on":
+            pitch = e["pitch"]
+            if note_on_buffer[pitch] is None:
+                note_on_buffer[pitch] = e
+            else:
+                return None, e
+                from IPython import embed; embed(using=False); os._exit(0)
+                raise NotImplementedError
+
+        elif e["name"] == "note_off":
+            pitch = e["pitch"]
+            if note_on_buffer[pitch] is not None:
+                note = pretty_midi.Note(
+                    pitch=pitch, 
+                    start=note_on_buffer[pitch]["time"], 
+                    end=e["time"], 
+                    velocity=note_on_buffer[pitch]["velocity"],
+                )
+                notes.append(note)
+                note_on_buffer[pitch] = None
+
+    return notes
+    
+
+
+def notes_to_midi(notes, midi_path):
+
+    track = pretty_midi.Instrument(program=0)
+    track.is_drum = False
+
+    for note in notes:
+        track.notes.append(note)
+
+    midi_data = pretty_midi.PrettyMIDI()
+    midi_data.instruments.append(track)
+    midi_data.write(midi_path)
+    print("Write out to {}".format(midi_path))
+
+
+'''
 def events_to_words(events):
 
     words = ["<sos>"]
@@ -412,8 +533,9 @@ def events_to_words(events):
     words.append("<eos>")
 
     return words
+'''
 
-
+'''
 def words_to_tokens(words, tokenizer):
 
     tokens = []
@@ -432,7 +554,7 @@ def tokens_to_words(tokens, tokenizer):
         words.append(tokenizer.itos(token))
 
     return words
-
+'''
 
 def test():
 

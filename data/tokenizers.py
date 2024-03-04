@@ -2,6 +2,7 @@ import re
 import numpy as np
 
 
+'''
 class BaseTokenizer:
     def __init__(self, strings, vocab_size=None):
         
@@ -11,6 +12,23 @@ class BaseTokenizer:
             self.vocab_size = vocab_size
         else:
             self.vocab_size = len(self.strings)
+
+        self.token_to_string = {token: string for token, string in enumerate(self.strings)}
+        self.string_to_token = {string: token for token, string in enumerate(self.strings)}
+        
+    def itos(self, token):
+        assert 0 <= token < self.vocab_size
+        return self.token_to_string[token]
+
+    def stoi(self, string):
+        if string in self.strings:
+            return self.string_to_token[string]
+'''
+class BaseTokenizer:
+    def __init__(self, strings):
+        
+        self.strings = strings
+        self.vocab_size = len(self.strings)
 
         self.token_to_string = {token: string for token, string in enumerate(self.strings)}
         self.string_to_token = {string: token for token, string in enumerate(self.strings)}
@@ -38,8 +56,8 @@ class NameTokenizer(BaseTokenizer):
             "beat", "downbeat",
         ]
         strings = ["name={}".format(s) for s in strings]
-        vocab_size = 100
-        BaseTokenizer.__init__(self, strings, vocab_size)
+        BaseTokenizer.__init__(self, strings)
+        self.vocab_size = 100
 
 
 class TimeTokenizer:
@@ -61,7 +79,7 @@ class TimeTokenizer:
             return token
 
 
-class InstrumentTokenizer:
+class MidiProgramTokenizer:
     def __init__(self):
         self.vocab_size = 128
 
@@ -75,6 +93,17 @@ class InstrumentTokenizer:
         if "inst" in string:
             token = int(re.search('inst=(.*)', string).group(1))
             return token
+
+
+class LabelTokenizer(BaseTokenizer):
+    def __init__(self):
+        strings = [
+            "maestro-piano",
+        ]
+        strings = ["label={}".format(s) for s in strings]
+
+        BaseTokenizer.__init__(self, strings)
+        self.vocab_size = 1000
 
 
 class PitchTokenizer:
@@ -115,7 +144,8 @@ class Tokenizer:
             SpecialTokenizer(),
             NameTokenizer(), 
             TimeTokenizer(), 
-            InstrumentTokenizer(),
+            # MidiProgramTokenizer(),
+            LabelTokenizer(),
             PitchTokenizer(),
             VelocityTokenizer(),
         ]
@@ -152,6 +182,24 @@ class Tokenizer:
                 start_token += tokenizer.vocab_size
 
         raise NotImplementedError("{} is not supported!".format(string))
+
+    def strings_to_tokens(self, strings):
+
+        tokens = []
+
+        for string in strings:
+            tokens.append(self.stoi(string))
+
+        return tokens
+
+    def tokens_to_strings(self, tokens):
+
+        strings = []
+
+        for token in tokens:
+            strings.append(self.itos(token))
+
+        return strings
 
 
 def test():

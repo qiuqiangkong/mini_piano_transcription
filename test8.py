@@ -10,7 +10,7 @@ from data.maestro import Maestro
 from data.slakh2100 import Slakh2100
 from data.collate import collate_fn
 from train import Sampler
-from data.midi import read_beats, beats_to_targets
+# from data.midi import read_beats, beats_to_targets
 
 
 def add():
@@ -48,7 +48,13 @@ def add2():
         pass
 
 
+def load_meta(meta_path):
 
+    with open(meta_path, 'r') as f:
+        meta = yaml.load(f, Loader=yaml.FullLoader)
+
+    stems = meta["stems"]
+    return stems
 
 
 def add3():
@@ -134,4 +140,4 @@ def add5():
 
 
 if __name__ == '__main__':
-    add5()
+    add3()

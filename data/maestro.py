@@ -10,7 +10,7 @@ import numpy as np
 import re
 import soundfile
 
-from data.io import read_single_track_midi, notes_to_rolls_and_events, pedals_to_rolls_and_events, events_to_notes, notes_to_midi
+from data.io import read_single_track_midi, notes_to_rolls_and_events, pedals_to_rolls_and_events, events_to_notes, notes_to_midi, fix_length
 from data.tokenizers import Tokenizer
 
 
@@ -91,7 +91,7 @@ class Maestro:
         )
         # shape: (tokens_num,)
 
-        librosa.get_samplerate(audio_path)
+        # librosa.get_samplerate(audio_path)
 
         data = {
             "audio_path": audio_path,
@@ -212,13 +212,6 @@ class Maestro:
         }
 
         return targets_dict
-
-
-def fix_length(x, max_len, constant_value):
-    if len(x) >= max_len:
-        return x[0 : max_len]
-    else:
-        return x + [constant_value] * (max_len - len(x))
 
 
 class MaestroStringProcessor:

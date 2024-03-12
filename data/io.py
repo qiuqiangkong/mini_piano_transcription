@@ -11,7 +11,7 @@ class Pedal:
         self.start = start
         self.end = end
 
-    def __str__(self):
+    def __repr__(self):
         return "Pedal(start={}, end={})".format(self.start, self.end)
 
 
@@ -171,6 +171,9 @@ def notes_to_rolls_and_events(notes, segment_frames, segment_start, segment_end,
 
         onset_time = time_to_grid(onset_time, fps)
         offset_time = time_to_grid(offset_time, fps)
+
+        if offset_time == onset_time:
+            offset_time = onset_time + 0.01
         
         if 0 <= note.start < seg_start and seg_start <= note.end < seg_end:
 
@@ -192,7 +195,7 @@ def notes_to_rolls_and_events(notes, segment_frames, segment_start, segment_end,
                 "pitch": pitch,
             })
 
-        if 0 <= note.start < seg_start and seg_end <= note.end < math.inf:
+        elif 0 <= note.start < seg_start and seg_end <= note.end < math.inf:
 
             frame_roll[:, pitch] += 1
 
@@ -240,8 +243,11 @@ def notes_to_rolls_and_events(notes, segment_frames, segment_start, segment_end,
                 "velocity": velocity
             })
 
-    events.sort(key=lambda event: (event["time"], event["name"], event["label"], event["pitch"]))
+    # if label == "slakh2100-Drums":
+    #     from IPython import embed; embed(using=False); os._exit(0)
 
+    events.sort(key=lambda event: (event["time"], event["name"], event["label"], event["pitch"]))
+    
     data = {
         "frame_roll": frame_roll,
         "onset_roll": onset_roll,
@@ -344,52 +350,54 @@ def pedals_to_rolls_and_events(pedals, segment_frames, segment_start, segment_en
     return data
 
 
-'''
-def drums_to_rolls_and_events(notes, segment_frames, segment_start, segment_end, fps, label):
-
-    #
+def beats_to_rolls_and_events(
+    beats,
+    segment_start, 
+    segment_end, 
+    fps
+):
     seg_start = segment_start
     seg_end = segment_end
-    pitches_num = 128
-
-    onset_roll = np.zeros((segment_frames, pitches_num))
-    velocity_roll = np.zeros((segment_frames, pitches_num))
-
+    seg_frames = round((seg_end - seg_start) * fps) + 1
+    
+    beat_roll = np.zeros(seg_frames)
+    downbeat_roll = np.zeros(seg_frames)
     events = []
 
-    for note in notes:
+    for beat in beats:
 
-        onset_time = note.start - seg_start
-        pitch = note.pitch
-        velocity = note.velocity
+        beat_time = beat.start - seg_start
+        beat_time = time_to_grid(beat_time, fps)
 
-        onset_time = time_to_grid(onset_time, fps)
+        if seg_start <= beat.start <= seg_end:
 
-        elif seg_start <= note.start <= seg_end:
-
-            onset_idx = round(onset_time * fps)
-            onset_roll[onset_idx, pitch] += 1
+            beat_idx = round(beat_time * fps)
+            beat_roll[beat_idx] += 1
 
             events.append({
-                "name": "note_on",
-                "time": onset_time, 
-                "label": label,
-                "pitch": pitch, 
-                "velocity": velocity
+                "name": "beat",
+                "time": beat_time,
+                "index": beat.index
             })
 
-    events.sort(key=lambda event: (event["time"], event["name"], event["pitch"]))
+            if beat.index == 0:
+                downbeat_roll[beat_idx] += 1
+
+                events.append({
+                    "name": "downbeat",
+                    "time": beat_time,
+                })
+
+    # No need to sort events because they are already sorted.
 
     data = {
-        "frame_roll": frame_roll,
-        "onset_roll": onset_roll,
-        "offset_roll": offset_roll,
-        "velocity_roll": offset_roll,
+        "beat_roll": beat_roll,
+        "downbeat_roll": downbeat_roll,
         "events": events,
     }
 
     return data
-'''
+
 
 def read_beats(midi_path):
 
@@ -454,35 +462,64 @@ def events_to_notes(events):
 
     pitches_num = 128
 
-    note_on_buffer = {pitch: None for pitch in range(pitches_num)}
+    note_on_buffer = {pitch: [] for pitch in range(pitches_num)}
     notes = []
 
     for e in events:
         
         if e["name"] == "note_on":
             pitch = e["pitch"]
-            if note_on_buffer[pitch] is None:
-                note_on_buffer[pitch] = e
-            else:
-                return None, e
-                from IPython import embed; embed(using=False); os._exit(0)
-                raise NotImplementedError
+            note_on_buffer[pitch].append(e)
 
         elif e["name"] == "note_off":
             pitch = e["pitch"]
-            if note_on_buffer[pitch] is not None:
+            if len(note_on_buffer[pitch]) > 0:
+                onset_event = note_on_buffer[pitch].pop(0)
                 note = pretty_midi.Note(
                     pitch=pitch, 
-                    start=note_on_buffer[pitch]["time"], 
+                    start=onset_event["time"], 
                     end=e["time"], 
-                    velocity=note_on_buffer[pitch]["velocity"],
+                    velocity=onset_event["velocity"],
                 )
                 notes.append(note)
-                note_on_buffer[pitch] = None
-
-    return notes
     
+    return notes
 
+
+class Beat:
+    def __init__(self, start, index):
+        self.start = start
+        self.index = index
+
+    def __repr__(self):
+        return "Beat(start={}, index={})".format(self.start, self.index)
+
+    # def __repr__(self):
+    #     return "Test()"
+    
+    # def __str__(self):
+    #     return "member of Test"
+
+
+def events_to_beats(events):
+
+    beats = []
+    
+    for e in events:
+        
+        if e["name"] == "beat":
+            beat = Beat(start=e["time"], index=e["beat_index"])
+            beats.append(beat)
+    
+    return beats
+
+
+def fix_length(x, max_len, constant_value):
+    if len(x) >= max_len:
+        return x[0 : max_len]
+    else:
+        return x + [constant_value] * (max_len - len(x))
+    
 
 def notes_to_midi(notes, midi_path):
 
@@ -498,63 +535,54 @@ def notes_to_midi(notes, midi_path):
     print("Write out to {}".format(midi_path))
 
 
-'''
-def events_to_words(events):
+def mt_notes_to_midi(mt_notes, inst_map, midi_path):
 
-    words = ["<sos>"]
+    midi_data = pretty_midi.PrettyMIDI()
+    
+    for key, notes in mt_notes.items():
 
-    for event in events:
-
-        name = event["name"]
-        time = event["time"]
-
-        words.append("name={}".format(name))
-        words.append("time={}".format(time))
-
-        if name in ["note_on"]:
-
-            words.append("pitch={}".format(event["pitch"]))
-            if "velocity" in event.keys():
-                words.append("velocity={}".format(event["velocity"])) 
-
-        elif name in ["note_off", "note_sustain"]:
-
-            words.append("pitch={}".format(event["pitch"]))
-
-        elif name in ["pedal_on", "pedal_off", "pedal_sustain"]:
-            pass
-
-        elif name in ["beat", "downbeat"]:
-            pass
-
+        if inst_map[key] == "Drums":
+            program = 10
+            track = pretty_midi.Instrument(program=program)
+            track.is_drum = True
         else:
-            raise NotImplementedError
+            program = pretty_midi.instrument_name_to_program(inst_map[key])
+            track = pretty_midi.Instrument(program=program)
+            track.is_drum = False
+        
+        for note in notes:
+            track.notes.append(note)
 
-    words.append("<eos>")
+        midi_data.instruments.append(track)
+    
+    midi_data.write(midi_path)
+    print("Write out to {}".format(midi_path))
+    # from IPython import embed; embed(using=False); os._exit(0)
 
-    return words
-'''
+    
+def add_beats_to_audio(audio, beats, sample_rate):
 
-'''
-def words_to_tokens(words, tokenizer):
+    audio_samples = audio.shape[-1]
+    new_audio = np.copy(audio)
 
-    tokens = []
+    for beat in beats:
 
-    for word in words:
-        tokens.append(tokenizer.stoi(word))
+        n = np.arange(sample_rate / 10)
+        r = (2 ** (1. / 12))
+        freq = 880 * (r ** (- beat.index))
+        beat_seg = np.cos(2 * math.pi * freq / sample_rate * n)
+        bgn = int(beat.start * sample_rate)
+        end = bgn + len(n)
+        
+        if end > audio_samples:
+            end = audio_samples
+            beat_seg = beat_seg[0 : end - bgn]
 
-    return tokens
+        new_audio[bgn : end] += beat_seg
+
+    return new_audio
 
 
-def tokens_to_words(tokens, tokenizer):
-
-    words = []
-
-    for token in tokens:
-        words.append(tokenizer.itos(token))
-
-    return words
-'''
 
 def test():
 

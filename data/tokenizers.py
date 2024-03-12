@@ -73,12 +73,12 @@ class TimeTokenizer:
         return string
 
     def stoi(self, string):
-        if "time" in string:
+        if "time=" in string:
             time = float(re.search('time=(.*)', string).group(1))
-            token = int(time * self.frames_per_second)
+            token = round(time * self.frames_per_second)
             return token
 
-
+'''
 class MidiProgramTokenizer:
     def __init__(self):
         self.vocab_size = 128
@@ -90,20 +90,55 @@ class MidiProgramTokenizer:
         return string
 
     def stoi(self, string):
-        if "inst" in string:
+        if "inst=" in string:
             token = int(re.search('inst=(.*)', string).group(1))
             return token
+'''
 
-
-class LabelTokenizer(BaseTokenizer):
+class MaestroLabelTokenizer(BaseTokenizer):
     def __init__(self):
         strings = [
-            "maestro-piano",
+            "Piano",
         ]
-        strings = ["label={}".format(s) for s in strings]
+        strings = ["label=maestro-{}".format(s) for s in strings]
 
         BaseTokenizer.__init__(self, strings)
-        self.vocab_size = 1000
+
+
+class Slakh2100LabelTokenizer(BaseTokenizer):
+    def __init__(self):
+        strings = [
+            "Bass",
+            "Brass",
+            "Chromatic Percussion",
+            "Drums",
+            "Ethnic",
+            "Guitar",
+            "Organ",
+            "Percussive",
+            "Piano",
+            "Pipe",
+            "Reed",
+            "Sound Effects",
+            "Strings",
+            "Strings (continued)",
+            "Synth Lead",
+            "Synth Pad"
+        ]
+        strings = ["label=slakh2100-{}".format(s) for s in strings]
+
+        BaseTokenizer.__init__(self, strings)
+
+
+class GtzanLabelTokenizer(BaseTokenizer):
+    def __init__(self):
+
+        strings = ["blues", "classical", "country", "disco", "hiphop", "jazz", 
+            "metal", "pop", "reggae", "rock"]
+
+        strings = ["label=gtzan-{}".format(s) for s in strings]
+
+        BaseTokenizer.__init__(self, strings)
 
 
 class PitchTokenizer:
@@ -117,7 +152,7 @@ class PitchTokenizer:
         return string
 
     def stoi(self, string):
-        if "pitch" in string:
+        if "pitch=" in string:
             token = int(re.search('pitch=(.*)', string).group(1))
             return token
 
@@ -133,8 +168,24 @@ class VelocityTokenizer:
         return string
 
     def stoi(self, string):
-        if "velocity" in string:
+        if "velocity=" in string:
             token = int(re.search('velocity=(.*)', string).group(1))
+            return token
+
+
+class BeatTokenizer:
+    def __init__(self):
+        self.vocab_size = 16
+
+    def itos(self, token):
+        assert 0 <= token < self.vocab_size
+
+        string = "beat_index={}".format(token)
+        return string
+
+    def stoi(self, string):
+        if "beat_index=" in string:
+            token = int(re.search('beat_index=(.*)', string).group(1))
             return token
 
 
@@ -145,9 +196,12 @@ class Tokenizer:
             NameTokenizer(), 
             TimeTokenizer(), 
             # MidiProgramTokenizer(),
-            LabelTokenizer(),
+            MaestroLabelTokenizer(),
+            Slakh2100LabelTokenizer(),
+            GtzanLabelTokenizer(),
             PitchTokenizer(),
             VelocityTokenizer(),
+            BeatTokenizer()
         ]
 
         self.vocab_size = np.sum([tokenizer.vocab_size for tokenizer in self.tokenizers])

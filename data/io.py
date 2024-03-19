@@ -350,53 +350,53 @@ def pedals_to_rolls_and_events(pedals, segment_frames, segment_start, segment_en
     return data
 
 
-def beats_to_rolls_and_events(
-    beats,
-    segment_start, 
-    segment_end, 
-    fps
-):
-    seg_start = segment_start
-    seg_end = segment_end
-    seg_frames = round((seg_end - seg_start) * fps) + 1
+# def beats_to_rolls_and_events(
+#     beats,
+#     segment_start, 
+#     segment_end, 
+#     fps
+# ):
+#     seg_start = segment_start
+#     seg_end = segment_end
+#     seg_frames = round((seg_end - seg_start) * fps) + 1
     
-    beat_roll = np.zeros(seg_frames)
-    downbeat_roll = np.zeros(seg_frames)
-    events = []
+#     beat_roll = np.zeros(seg_frames)
+#     downbeat_roll = np.zeros(seg_frames)
+#     events = []
 
-    for beat in beats:
+#     for beat in beats:
 
-        beat_time = beat.start - seg_start
-        beat_time = time_to_grid(beat_time, fps)
+#         beat_time = beat.start - seg_start
+#         beat_time = time_to_grid(beat_time, fps)
 
-        if seg_start <= beat.start <= seg_end:
+#         if seg_start <= beat.start <= seg_end:
 
-            beat_idx = round(beat_time * fps)
-            beat_roll[beat_idx] += 1
+#             frame_idx = round(beat_time * fps)
+#             beat_roll[frame_idx] += 1
 
-            events.append({
-                "name": "beat",
-                "time": beat_time,
-                "index": beat.index
-            })
+#             events.append({
+#                 "name": "beat",
+#                 "time": beat_time,
+#                 "index": beat.index
+#             })
 
-            if beat.index == 0:
-                downbeat_roll[beat_idx] += 1
+#             if beat.index == 0:
+#                 downbeat_roll[frame_idx] += 1
 
-                events.append({
-                    "name": "downbeat",
-                    "time": beat_time,
-                })
+#                 events.append({
+#                     "name": "downbeat",
+#                     "time": beat_time,
+#                 })
 
-    # No need to sort events because they are already sorted.
+#     # No need to sort events because they are already sorted.
 
-    data = {
-        "beat_roll": beat_roll,
-        "downbeat_roll": downbeat_roll,
-        "events": events,
-    }
+#     data = {
+#         "beat_roll": beat_roll,
+#         "downbeat_roll": downbeat_roll,
+#         "events": events,
+#     }
 
-    return data
+#     return data
 
 
 def read_beats(midi_path):
@@ -486,34 +486,6 @@ def events_to_notes(events):
     return notes
 
 
-class Beat:
-    def __init__(self, start, index):
-        self.start = start
-        self.index = index
-
-    def __repr__(self):
-        return "Beat(start={}, index={})".format(self.start, self.index)
-
-    # def __repr__(self):
-    #     return "Test()"
-    
-    # def __str__(self):
-    #     return "member of Test"
-
-
-def events_to_beats(events):
-
-    beats = []
-    
-    for e in events:
-        
-        if e["name"] == "beat":
-            beat = Beat(start=e["time"], index=e["beat_index"])
-            beats.append(beat)
-    
-    return beats
-
-
 def fix_length(x, max_len, constant_value):
     if len(x) >= max_len:
         return x[0 : max_len]
@@ -558,30 +530,6 @@ def mt_notes_to_midi(mt_notes, inst_map, midi_path):
     midi_data.write(midi_path)
     print("Write out to {}".format(midi_path))
     # from IPython import embed; embed(using=False); os._exit(0)
-
-    
-def add_beats_to_audio(audio, beats, sample_rate):
-
-    audio_samples = audio.shape[-1]
-    new_audio = np.copy(audio)
-
-    for beat in beats:
-
-        n = np.arange(sample_rate / 10)
-        r = (2 ** (1. / 12))
-        freq = 880 * (r ** (- beat.index))
-        beat_seg = np.cos(2 * math.pi * freq / sample_rate * n)
-        bgn = int(beat.start * sample_rate)
-        end = bgn + len(n)
-        
-        if end > audio_samples:
-            end = audio_samples
-            beat_seg = beat_seg[0 : end - bgn]
-
-        new_audio[bgn : end] += beat_seg
-
-    return new_audio
-
 
 
 def test():

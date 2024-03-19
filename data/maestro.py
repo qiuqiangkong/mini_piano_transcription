@@ -162,7 +162,7 @@ class Maestro:
         seg_start = segment_start_time
         seg_end = seg_start + self.segment_seconds
 
-        label = "maestro-piano"
+        label = "maestro-Piano"
 
         note_data = notes_to_rolls_and_events(
             notes=notes,

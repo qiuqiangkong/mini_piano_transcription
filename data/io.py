@@ -152,6 +152,7 @@ def notes_to_rolls_and_events(notes, segment_frames, segment_start, segment_end,
     #
     seg_start = segment_start
     seg_end = segment_end
+    seg_len = seg_end - seg_start
     pitches_num = 128
 
     # Covert notes information to words.

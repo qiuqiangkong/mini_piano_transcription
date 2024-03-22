@@ -165,8 +165,9 @@ def notes_to_rolls_and_events(notes, segment_frames, segment_start, segment_end,
 
     for note in notes:
 
-        if note.start >= seg_end or note.end < seg_start:
+        if 0 <= note.end < seg_start or seg_end < note.start < math.inf:
             continue
+
         onset_time = note.start - seg_start
         offset_time = note.end - seg_start
         pitch = note.pitch
@@ -178,7 +179,7 @@ def notes_to_rolls_and_events(notes, segment_frames, segment_start, segment_end,
         if offset_time == onset_time:
             offset_time = onset_time + 0.01
 
-        if onset_time < 0 and 0 <= offset_time < seg_len:
+        if onset_time < 0 and 0 <= offset_time <= seg_len:
 
             offset_idx = round(offset_time * fps)
             offset_roll[offset_idx, pitch] = 1
@@ -198,9 +199,9 @@ def notes_to_rolls_and_events(notes, segment_frames, segment_start, segment_end,
                 "pitch": pitch,
             })
 
-        elif onset_time < 0 and seg_len <= offset_time < math.inf:
+        elif onset_time < 0 and seg_len < offset_time < math.inf:
 
-            frame_roll[:, pitch] += 1
+            frame_roll[:, pitch] = 1
 
             events.append({
                 "name": "note_sustain", 
@@ -210,7 +211,7 @@ def notes_to_rolls_and_events(notes, segment_frames, segment_start, segment_end,
                 "velocity": velocity
             })
 
-        elif 0 <= onset_time < seg_len and 0 <= offset_time < seg_len:
+        elif 0 <= onset_time <= seg_len and 0 <= offset_time <= seg_len:
 
             onset_idx = round(onset_time * fps)
             offset_idx = round(offset_time * fps)
@@ -233,7 +234,7 @@ def notes_to_rolls_and_events(notes, segment_frames, segment_start, segment_end,
                 "pitch": pitch, 
             })
 
-        elif 0 <= onset_time < seg_len and seg_len <= offset_time < math.inf:
+        elif 0 <= onset_time <= seg_len and seg_len < offset_time < math.inf:
 
             onset_idx = round(onset_time * fps)
             onset_roll[onset_idx, pitch] = 1
@@ -280,7 +281,7 @@ def pedals_to_rolls_and_events(pedals, segment_frames, segment_start, segment_en
 
     for pedal in pedals:
 
-        if pedal.start >= seg_end or pedal.end < seg_start:
+        if 0 <= pedal.end < seg_start or seg_end < pedal.start < math.inf:
             continue
 
         onset_time = pedal.start - seg_start
@@ -292,11 +293,11 @@ def pedals_to_rolls_and_events(pedals, segment_frames, segment_start, segment_en
         if offset_time == onset_time:
             offset_time = onset_time + 0.01
 
-        if onset_time < 0 and 0 <= offset_time < seg_len:
+        if onset_time < 0 and 0 <= offset_time <= seg_len:
 
             offset_idx = round(offset_time * fps)
-            offset_roll[offset_idx] += 1
-            frame_roll[0 : offset_idx + 1] += 1
+            offset_roll[offset_idx] = 1
+            frame_roll[0 : offset_idx + 1] = 1
 
             events.append({
                 "name": "pedal_sustain", 
@@ -309,9 +310,9 @@ def pedals_to_rolls_and_events(pedals, segment_frames, segment_start, segment_en
                 "label": label,
             })
 
-        elif onset_time < 0 and seg_len <= offset_time < math.inf:
+        elif onset_time < 0 and seg_len < offset_time < math.inf:
 
-            frame_roll += 1
+            frame_roll[:] = 1
 
             events.append({
                 "name": "pedal_sustain", 
@@ -319,13 +320,13 @@ def pedals_to_rolls_and_events(pedals, segment_frames, segment_start, segment_en
                 "label": label,
             })
 
-        elif 0 <= onset_time < seg_end and 0 <= offset_time < seg_len:
+        elif 0 <= onset_time <= seg_len and 0 <= offset_time <= seg_len:
 
             onset_idx = round(onset_time * fps)
             offset_idx = round(offset_time * fps)
-            onset_roll[onset_idx] += 1
-            offset_roll[offset_idx] += 1
-            frame_roll[onset_idx : offset_idx + 1] += 1
+            onset_roll[onset_idx] = 1
+            offset_roll[offset_idx] = 1
+            frame_roll[onset_idx : offset_idx + 1] = 1
 
             events.append({
                 "name": "pedal_on",
@@ -338,11 +339,11 @@ def pedals_to_rolls_and_events(pedals, segment_frames, segment_start, segment_en
                 "label": label,
             })
 
-        elif 0 <= onset_time < seg_len and seg_len <= offset_time < math.inf:
+        elif 0 <= onset_time <= seg_len and seg_len < offset_time < math.inf:
 
             onset_idx = round(onset_time * fps)
-            onset_roll[onset_idx] += 1
-            frame_roll[onset_idx :] += 1
+            onset_roll[onset_idx] = 1
+            frame_roll[onset_idx :] = 1
 
             events.append({
                 "name": "pedal_on",
